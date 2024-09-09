@@ -1,0 +1,46 @@
+version: "3.9"
+
+networks:
+    app-network:
+        driver: bridge
+
+services:
+    app:
+        image: "oven/bun"
+        container_name: elysia-app
+        # Override entrypoint and command to start the application in dev mode
+        entrypoint: []
+        command: "/bin/sh -c 'bun install && bun run --watch src/index.ts'"
+        # Expose port for the application
+        ports:
+            - "3000:3000"
+        # Setup host-mounted volume to sync changes to the container
+        volumes: ["./:/home/bun/app"]
+        depends_on:
+            db:
+                condition: service_healthy
+        networks:
+            - app-network
+
+    db:
+        image: postgres:15-alpine
+        container_name: elysia-db
+        restart: always
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        volumes:
+            - db-data:/var/lib/postgresql/data
+        expose:
+            - "5432"
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - app-network
+
+volumes:
+    db-data:
